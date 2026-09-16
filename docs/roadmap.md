@@ -10,11 +10,11 @@
 - [x] Add `docs/architecture.md`
 - [x] Add `docs/decisions.md`
 - [x] Add `docs/roadmap.md`
-- [ ] Add basic Ansible project structure
-- [ ] Add `ansible.cfg`
-- [ ] Add `requirements.yml`
-- [ ] Add `saltbox_mod.yml`
-- [ ] Add CI for `ansible-lint`
+- [x] Add basic Ansible project structure
+- [x] Add `ansible.cfg`
+- [x] Add `requirements.yml`
+- [x] Add `saltbox_mod.yml`
+- [x] Add CI for `ansible-lint`
 
 ---
 

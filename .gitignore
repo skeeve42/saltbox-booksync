@@ -1,0 +1,24 @@
+# Local inventory and credentials
+/inventory.ini
+/inventory.yml
+/inventory.yaml
+/inventory/
+/secrets/
+.env
+.env.*
+!.env.example
+.vault_pass*
+rclone.conf
+
+# Ansible and Python caches
+.ansible/
+*.retry
+__pycache__/
+*.py[cod]
+.venv/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

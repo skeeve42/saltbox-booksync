@@ -1,0 +1,6 @@
+---
+# Foundation placeholder; role wiring will be added during implementation.
+- name: Booksync foundation
+  hosts: all
+  gather_facts: false
+  tasks: []

@@ -1,0 +1,4 @@
+---
+# Add external dependencies when role implementation requires them.
+collections: []
+roles: []

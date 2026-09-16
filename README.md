@@ -335,6 +335,10 @@ saltbox-booksync/
 
 Booksync is currently in early development.
 
+Phase 0 is complete locally. Phase 1 storage validation is implemented in
+[`books_rclone`](roles/books_rclone/README.md), with offline integration tests.
+Live Saltbox/cloud validation remains pending; see the [roadmap](docs/roadmap.md).
+
 Initial milestones are:
 
 1. Create and validate the `books_rclone` role.

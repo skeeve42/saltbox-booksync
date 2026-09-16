@@ -4,6 +4,9 @@
 
 **Goal:** Create a safe development baseline.
 
+**Status:** Complete locally in `7c867d7`. Push attempted on 2026-09-17;
+GitHub rejected the saved credentials, so remote publication is pending.
+
 - [x] Create repository
 - [x] Add `README.md`
 - [x] Add `AGENTS.md`
@@ -22,18 +25,28 @@
 
 **Goal:** Validate and expose the configured books storage safely.
 
+**Status:** Implemented and validated offline on 2026-09-17: Ansible lint 26.8.0
+passed with zero warnings, and all five integration tests passed (including six
+failure scenarios). A live Saltbox/cloud acceptance run remains pending.
+See `roles/books_rclone/README.md` for configuration.
+
 Initial scope:
 
-- [ ] detect the existing rclone installation
-- [ ] locate the active rclone configuration
-- [ ] validate a configured `books` remote
-- [ ] validate access to the configured books root
-- [ ] create required local directories
-- [ ] fail clearly when the remote is missing or inaccessible
-- [ ] preserve all existing rclone remotes
-- [ ] avoid automating OAuth in v1
-- [ ] verify idempotency
-- [ ] add tests
+- [x] detect the existing rclone installation
+- [x] locate the active rclone configuration
+- [x] validate a configured `books` remote
+- [x] validate access to the configured books root
+- [x] create required local directories
+- [x] fail clearly when the remote is missing or inaccessible
+- [x] preserve all existing rclone remotes
+- [x] avoid automating OAuth in v1
+- [x] verify idempotency (offline integration test)
+- [x] add tests
+
+Remaining acceptance checks:
+
+- [ ] run against the existing Saltbox user's real books remote
+- [ ] confirm a second Saltbox run reports no changes and preserves unrelated remotes
 
 Success criteria:
 

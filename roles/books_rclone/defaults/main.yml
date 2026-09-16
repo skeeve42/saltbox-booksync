@@ -1,0 +1,12 @@
+---
+books_rclone_binary: rclone
+# Empty selects rclone's active configuration for books_rclone_user.
+books_rclone_config: ""
+books_rclone_user: "{{ user.name | default(ansible_user_id) }}"
+books_rclone_group: "{{ user.name | default(ansible_user_gid) }}"
+books_rclone_remote: books
+books_rclone_root: Books
+books_rclone_local_directories:
+  - /opt/booksync
+  - /opt/booksync/cache
+books_rclone_directory_mode: "0750"

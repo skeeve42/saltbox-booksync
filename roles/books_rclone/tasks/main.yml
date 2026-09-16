@@ -1,0 +1,126 @@
+---
+- name: Validate storage settings
+  ansible.builtin.assert:
+    that:
+      - books_rclone_remote is match('^[A-Za-z0-9_][A-Za-z0-9_. -]*$')
+      - books_rclone_root is string
+      - not books_rclone_root.startswith('/')
+      - "'..' not in books_rclone_root.split('/')"
+      - books_rclone_config == '' or books_rclone_config.startswith('/')
+    fail_msg: Use a remote name without a colon, a relative books root, and an absolute config path (or empty for discovery).
+
+- name: Validate local directory paths
+  ansible.builtin.assert:
+    that:
+      - item is string
+      - item.startswith('/')
+      - item != '/'
+      - "'..' not in item.split('/')"
+    fail_msg: Local directories must be absolute paths other than the filesystem root.
+  loop: "{{ books_rclone_local_directories }}"
+
+- name: Validate existing rclone as the storage user
+  become: true
+  become_user: "{{ books_rclone_user }}"
+  block:
+    - name: Detect rclone installation
+      ansible.builtin.command:
+        argv: ["{{ books_rclone_binary }}", version]
+      register: books_rclone_version_result
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Require a working rclone installation
+      ansible.builtin.assert:
+        that: books_rclone_version_result.rc == 0
+        fail_msg: Install rclone first or set books_rclone_binary to its executable path.
+
+    - name: Locate active rclone configuration
+      ansible.builtin.command:
+        argv: >-
+          {{ [books_rclone_binary, 'config', 'file', '--ask-password=false'] +
+             (['--config', books_rclone_config] if books_rclone_config | length > 0 else []) }}
+      register: books_rclone_config_result
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Require successful configuration discovery
+      ansible.builtin.assert:
+        that:
+          - books_rclone_config_result.rc == 0
+          - books_rclone_config_result.stdout_lines | default([]) | length > 0
+        fail_msg: Cannot locate rclone configuration. Set books_rclone_config and verify storage user access.
+
+    - name: Record resolved storage settings
+      ansible.builtin.set_fact:
+        books_rclone_config_path: "{{ books_rclone_config if books_rclone_config | length > 0 else books_rclone_config_result.stdout_lines[-1] | trim }}"
+        books_rclone_source: "{{ books_rclone_remote }}:{{ books_rclone_root }}"
+
+    - name: Inspect configuration file
+      ansible.builtin.stat:
+        path: "{{ books_rclone_config_path }}"
+        get_checksum: false
+        get_mime: false
+      register: books_rclone_config_stat
+
+    - name: Require a readable existing configuration
+      ansible.builtin.assert:
+        that:
+          - books_rclone_config_stat.stat.exists
+          - books_rclone_config_stat.stat.isreg | default(false)
+          - books_rclone_config_stat.stat.readable | default(false)
+        fail_msg: Rclone configuration is missing or unreadable by books_rclone_user. Configure it manually before deployment.
+
+    - name: Read configured remote names
+      ansible.builtin.command:
+        argv: ["{{ books_rclone_binary }}", listremotes, --config, "{{ books_rclone_config_path }}", --ask-password=false]
+      register: books_rclone_remotes_result
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Require the books remote
+      ansible.builtin.assert:
+        that:
+          - books_rclone_remotes_result.rc == 0
+          - "(books_rclone_remote ~ ':') in books_rclone_remotes_result.stdout_lines | default([])"
+        fail_msg: Configured books remote is missing or configuration cannot be read. Run rclone config manually as the storage user.
+
+    - name: Validate access to the books root
+      ansible.builtin.command:
+        argv:
+          - "{{ books_rclone_binary }}"
+          - lsf
+          - "{{ books_rclone_source }}"
+          - --config
+          - "{{ books_rclone_config_path }}"
+          - --ask-password=false
+          - --max-depth=1
+          - --contimeout=10s
+          - --timeout=30s
+          - --retries=1
+          - --low-level-retries=1
+      register: books_rclone_access_result
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      no_log: true
+
+    - name: Require accessible books storage
+      ansible.builtin.assert:
+        that: books_rclone_access_result.rc == 0
+        fail_msg: Books root is inaccessible. Check books_rclone_root, remote permissions, network access, and OAuth authorization manually.
+
+- name: Create local Booksync directories after validation
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ books_rclone_user }}"
+    group: "{{ books_rclone_group }}"
+    mode: "{{ books_rclone_directory_mode }}"
+  loop: "{{ books_rclone_local_directories }}"

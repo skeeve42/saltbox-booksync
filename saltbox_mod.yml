@@ -1,6 +1,7 @@
 ---
-# Foundation placeholder; role wiring will be added during implementation.
-- name: Booksync foundation
+- name: Validate Booksync storage
   hosts: all
-  gather_facts: false
-  tasks: []
+  gather_facts: true
+  roles:
+    - role: books_rclone
+      tags: [books-rclone]

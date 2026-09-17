@@ -190,6 +190,66 @@ route through Traefik's watched file provider. This avoids a public HTTP port an
 interactive SSO. DNS remains an operator prerequisite. Standalone mode uses
 loopback with an operator-managed reverse proxy. No persistent mount is needed.
 
+---
+
+## ADR-009: Validate in a local VM before accessing production
+
+**Status:** Accepted on 2026-09-17; VM not yet provisioned
+
+Use a Linux VM hosted on the user's Windows computer as the initial live test
+environment, with a fresh Saltbox installation. Do not host the VM on the
+production server. A temporary rented server was considered, but the local VM
+is the selected approach.
+
+### Reasons
+
+- The production Saltbox server provides Plex and other services to other people.
+- The user wants high confidence in Booksync before touching production.
+- A separate local VM allows installation, restart, removal, and rollback tests
+  without consuming production resources or changing production configuration.
+
+### Boundaries and validation
+
+- Do not access or modify production during this phase, including its
+  configuration, credentials, and cloud storage. Production access or deployment
+  requires explicit user authorization in a later phase.
+- Use a separate test library with sample EPUBs and dedicated test credentials.
+  Any cloud storage used for testing must be separate from production storage.
+- Take VM snapshots before each installation stage and practice rollback.
+- Validate storage and authenticated, read-only WebDAV downloads first. Confirm
+  both physical readers can browse, download, and open the same source EPUB.
+- Verify repeat deployments cause no unexpected changes, services survive VM
+  restarts, and removal and rollback work.
+- Implement and validate BookBridge/KOSync separately afterward, including
+  progress transfer in both directions. Local EPUB reading does not prove
+  WebDAV or progress synchronization works.
+- Successful VM tests do not automatically authorize production deployment.
+  Review environment differences and prepare a concrete deployment and rollback
+  plan before requesting approval for production changes.
+
+### Handoff state
+
+As reported by the user on 2026-09-17:
+
+- KOReader is installed on the Kobo Clara BW.
+- CrossPoint is installed on the Xteink X4 Pro. Flashing succeeded through the
+  supplied USB-C-to-pogo adapter; this device does not have a USB-C port.
+- The same EPUB opens successfully on both readers. Keep identical, unoptimized
+  source EPUBs for the initial integration tests.
+- No Booksync services have been deployed on the actual server. Live WebDAV,
+  CrossPoint WebDAV plugin compatibility, and progress sync remain unvalidated.
+
+The host check is complete. The agreed guest is Ubuntu Server 22.04.5 LTS with
+a 50 GB disk; the starting allocation is 6 vCPUs and 16 GiB RAM on VirtualBox.
+Keep active snapshots local and powered-off backups in
+`R:\My Drive\Saltbox\_VM`. Reproduce the Saltbox application baseline before
+installing Booksync. See [the lab runbook](saltbox-lab.md) for stages and status.
+
+The user's subsequent storage instructions refine the earlier test-storage
+boundary: connect the designated books shared Google Drive separately from the
+media Drive using Saltbox's supported rclone workflow. Do not infer authorization
+to modify remote content or access the production server from that instruction.
+
 ## Pending decisions
 
 The following decisions are not finalized:

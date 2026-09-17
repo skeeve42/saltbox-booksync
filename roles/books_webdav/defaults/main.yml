@@ -1,0 +1,20 @@
+---
+books_webdav_binary: /usr/bin/rclone
+books_webdav_ebook_path: Ebooks
+books_webdav_read_only: true
+books_webdav_username: ""
+books_webdav_password: ""
+books_webdav_service_name: books-webdav
+books_webdav_state_path: /opt/books-webdav
+books_webdav_port: 8087
+# Empty discovers the Saltbox Docker bridge gateway, or uses loopback without Traefik.
+books_webdav_bind_address: ""
+books_webdav_traefik_enabled: true
+books_webdav_docker_network: saltbox
+books_webdav_traefik_directory: "{{ server_appdata_path | default('/opt') }}/traefik"
+books_webdav_subdomain: books
+books_webdav_domain: "{{ user.domain | default('') }}"
+books_webdav_hostname: "{{ books_webdav_subdomain }}.{{ books_webdav_domain }}"
+books_webdav_traefik_entrypoint: websecure
+# Empty inherits the certificate resolver on Saltbox's TLS entrypoint.
+books_webdav_traefik_certresolver: ""

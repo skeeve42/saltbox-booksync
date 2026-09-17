@@ -1,7 +1,9 @@
 ---
-- name: Validate Booksync storage
+- name: Deploy Booksync components
   hosts: all
   gather_facts: true
   roles:
     - role: books_rclone
       tags: [books-rclone]
+    - role: books_webdav
+      tags: [books-webdav]

@@ -174,11 +174,26 @@ booksync-admin.example.com
 
 ---
 
+## ADR-008: Host systemd WebDAV with Saltbox's Traefik file provider
+
+**Status:** Accepted for Phase 2; live Saltbox acceptance pending
+
+Run the installed rclone as the storage user under systemd. This reuses the
+existing config and permits normal OAuth refresh without mounting the user's
+entire config directory into a container. Serve only the configured ebook
+subdirectory. Keep Basic-auth credentials in a private bcrypt password file,
+passed explicitly with `--htpasswd`; do not depend on rclone's version-specific
+credential environment-variable behavior.
+
+Bind to the existing Saltbox Docker bridge gateway and publish a dedicated TLS
+route through Traefik's watched file provider. This avoids a public HTTP port and
+interactive SSO. DNS remains an operator prerequisite. Standalone mode uses
+loopback with an operator-managed reverse proxy. No persistent mount is needed.
+
 ## Pending decisions
 
 The following decisions are not finalized:
 
-- whether `books_webdav` should run as a host systemd service or Docker container
 - whether `books_rclone` should manage a persistent mount
 - exact BookBridge container/network layout
 - exact standalone reverse-proxy strategy

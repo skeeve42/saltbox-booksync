@@ -1,0 +1,228 @@
+---
+- name: Validate WebDAV credentials
+  ansible.builtin.assert:
+    that:
+      - books_webdav_username is string
+      - books_webdav_username | length > 0
+      - books_webdav_username is match('^[A-Za-z0-9_][A-Za-z0-9_.@-]*$')
+      - "':' not in books_webdav_username"
+      - books_webdav_password is string
+      - books_webdav_password | length >= 16
+      - books_webdav_password is match('^[ -~]{16,72}$')
+      - books_webdav_username is not search('[\x00-\x1f\x7f]')
+      - books_webdav_password is not search('[\x00-\x1f\x7f]')
+      - "'\n' not in books_webdav_username"
+      - "'\n' not in books_webdav_password"
+      - "'\r' not in books_webdav_username"
+      - "'\r' not in books_webdav_password"
+    fail_msg: Set a WebDAV username and a printable ASCII password of 16 to 72 characters through private inventory or Vault.
+  no_log: true
+
+- name: Validate WebDAV settings
+  ansible.builtin.assert:
+    that:
+      - books_webdav_ebook_path is string
+      - books_webdav_ebook_path | length > 0
+      - not books_webdav_ebook_path.startswith('/')
+      - "'..' not in books_webdav_ebook_path.split('/')"
+      - "'.' not in books_webdav_ebook_path.split('/')"
+      - "'' not in books_webdav_ebook_path.split('/')"
+      - books_webdav_binary is match('^/[^\n\r]+$')
+      - books_webdav_state_path is match('^/[^\n\r]+$')
+      - books_webdav_state_path != '/'
+      - "'..' not in books_webdav_state_path.split('/')"
+      - books_webdav_service_name is match('^[a-z][a-z0-9-]+$')
+      - books_webdav_port | int > 1023
+      - books_webdav_port | int < 65536
+      - books_webdav_read_only is boolean
+      - books_webdav_traefik_enabled is boolean
+    fail_msg: Use a nonempty relative ebook subdirectory, absolute paths, a valid service name and an unprivileged port.
+
+- name: Validate existing storage
+  ansible.builtin.include_role:
+    name: books_rclone
+    public: true
+  vars:
+    books_rclone_binary: "{{ books_webdav_binary }}"
+
+- name: Record ebook source
+  ansible.builtin.set_fact:
+    books_webdav_source: "{{ books_rclone_source.rstrip('/') }}/{{ books_webdav_ebook_path }}"
+
+- name: Check ebook subdirectory access
+  become: true
+  become_user: "{{ books_rclone_user }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ books_webdav_binary }}"
+      - lsf
+      - "{{ books_webdav_source }}"
+      - --config
+      - "{{ books_rclone_config_path }}"
+      - --ask-password=false
+      - --max-depth=1
+      - --contimeout=10s
+      - --timeout=30s
+      - --retries=1
+      - --low-level-retries=1
+  register: books_webdav_access
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Require accessible ebook subdirectory
+  ansible.builtin.assert:
+    that: books_webdav_access.rc == 0
+    fail_msg: The configured ebook subdirectory is inaccessible; no WebDAV service has been installed.
+
+- name: Discover Saltbox bridge
+  when:
+    - books_webdav_traefik_enabled | bool
+    - books_webdav_bind_address | length == 0
+  block:
+    - name: Inspect existing Docker network
+      become: true
+      ansible.builtin.command:
+        argv: [docker, network, inspect, "{{ books_webdav_docker_network }}"]
+      register: books_webdav_network
+      changed_when: false
+      check_mode: false
+
+    - name: Record bridge gateway
+      ansible.builtin.set_fact:
+        books_webdav_gateway: "{{ (books_webdav_network.stdout | from_json)[0].IPAM.Config[0].Gateway }}"
+
+- name: Record listen address
+  ansible.builtin.set_fact:
+    books_webdav_listen_address: >-
+      {{ books_webdav_bind_address if books_webdav_bind_address | length > 0 else
+         (books_webdav_gateway if books_webdav_traefik_enabled | bool else '127.0.0.1') }}
+
+- name: Require a private IPv4 listener
+  ansible.builtin.assert:
+    that:
+      - books_webdav_listen_address is match('^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)[0-9.]+$')
+    fail_msg: Bind WebDAV to loopback or a private IPv4 interface reachable by your reverse proxy.
+
+- name: Validate Traefik integration
+  when: books_webdav_traefik_enabled | bool
+  block:
+    - name: Validate endpoint settings
+      ansible.builtin.assert:
+        that:
+          - books_webdav_hostname is match('^[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z0-9-]+$')
+          - books_webdav_traefik_entrypoint is match('^[A-Za-z0-9_-]+$')
+          - books_webdav_traefik_certresolver is match('^[A-Za-z0-9_-]*$')
+          - not books_webdav_listen_address.startswith('127.')
+        fail_msg: Set a valid public hostname and a private listener reachable from the Traefik container.
+
+    - name: Inspect existing Traefik directory
+      ansible.builtin.stat:
+        path: "{{ books_webdav_traefik_directory }}"
+      register: books_webdav_traefik_dir
+
+    - name: Require existing Traefik installation
+      ansible.builtin.assert:
+        that: books_webdav_traefik_dir.stat.isdir | default(false)
+        fail_msg: Install Saltbox Traefik first or disable books_webdav_traefik_enabled for standalone use.
+
+- name: Install WebDAV service
+  become: true
+  block:
+    - name: Create protected service directory
+      ansible.builtin.file:
+        path: "{{ books_webdav_state_path }}"
+        state: directory
+        owner: "{{ books_rclone_user }}"
+        group: "{{ books_rclone_group }}"
+        mode: "0700"
+
+    - name: Install password-file utility
+      ansible.builtin.package:
+        name: apache2-utils
+        state: present
+
+    - name: Check current WebDAV password
+      ansible.builtin.command:
+        argv: [htpasswd, -vi, "{{ books_webdav_state_path }}/credentials", "{{ books_webdav_username }}"]
+        stdin: "{{ books_webdav_password }}"
+      register: books_webdav_password_check
+      changed_when: false
+      failed_when: false
+      no_log: true
+      when: not ansible_check_mode
+
+    - name: Store bcrypt WebDAV credentials when changed
+      ansible.builtin.command:
+        argv: [htpasswd, -cBi, -C, "10", "{{ books_webdav_state_path }}/credentials", "{{ books_webdav_username }}"]
+        stdin: "{{ books_webdav_password }}"
+      changed_when: true
+      no_log: true
+      notify: Restart books WebDAV
+      when:
+        - not ansible_check_mode
+        - books_webdav_password_check.rc != 0
+
+    - name: Protect WebDAV password file
+      ansible.builtin.file:
+        path: "{{ books_webdav_state_path }}/credentials"
+        owner: "{{ books_rclone_user }}"
+        group: "{{ books_rclone_group }}"
+        mode: "0600"
+      when: not ansible_check_mode
+
+    - name: Install systemd unit
+      ansible.builtin.template:
+        src: service.j2
+        dest: "/etc/systemd/system/{{ books_webdav_service_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart books WebDAV
+
+    - name: Apply service changes before health checks
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start WebDAV
+      ansible.builtin.systemd_service:
+        name: "{{ books_webdav_service_name }}"
+        enabled: true
+        state: started
+      when: not ansible_check_mode
+
+    - name: Check authenticated ebook browsing
+      ansible.builtin.uri:
+        url: "http://{{ books_webdav_listen_address }}:{{ books_webdav_port }}/"
+        method: PROPFIND
+        headers:
+          Depth: "0"
+        url_username: "{{ books_webdav_username }}"
+        url_password: "{{ books_webdav_password }}"
+        force_basic_auth: true
+        use_netrc: false
+        use_proxy: false
+        status_code: 207
+      register: books_webdav_health
+      until: books_webdav_health is succeeded
+      retries: 5
+      delay: 2
+      no_log: true
+      when: not ansible_check_mode
+
+    - name: Verify anonymous requests are rejected
+      ansible.builtin.uri:
+        url: "http://{{ books_webdav_listen_address }}:{{ books_webdav_port }}/"
+        use_proxy: false
+        status_code: 401
+        use_netrc: false
+      when: not ansible_check_mode
+
+    - name: Install Saltbox Traefik route
+      ansible.builtin.template:
+        src: traefik.yml.j2
+        dest: "{{ books_webdav_traefik_directory }}/{{ books_webdav_service_name }}.yml"
+        owner: root
+        group: root
+        mode: "0644"
+      when: books_webdav_traefik_enabled | bool

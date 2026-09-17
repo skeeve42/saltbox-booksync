@@ -1,0 +1,24 @@
+# Managed by Booksync. TLS and certificates use the existing Saltbox entrypoint.
+http:
+  routers:
+    {{ books_webdav_service_name }}:
+      rule: "Host(`{{ books_webdav_hostname }}`)"
+      entryPoints:
+        - {{ books_webdav_traefik_entrypoint | to_json }}
+      service: {{ books_webdav_service_name }}
+{% if books_webdav_traefik_certresolver | length > 0 %}
+      tls:
+        certResolver: {{ books_webdav_traefik_certresolver | to_json }}
+{% else %}
+      tls: {}
+{% endif %}
+  services:
+    {{ books_webdav_service_name }}:
+      loadBalancer:
+        servers:
+          - url: "http://{{ books_webdav_listen_address }}:{{ books_webdav_port }}"
+        healthCheck:
+          path: /
+          status: 401
+          interval: 30s
+          timeout: 5s

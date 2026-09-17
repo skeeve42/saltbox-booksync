@@ -1,0 +1,19 @@
+[Unit]
+Description=Booksync ebook WebDAV
+Wants=network-online.target
+After=network-online.target{% if books_webdav_traefik_enabled | bool %} docker.service{% endif %}
+
+[Service]
+Type=simple
+User={{ books_rclone_user }}
+Group={{ books_rclone_group }}
+ExecStart={{ books_webdav_binary | replace('%', '%%') | replace('$', '$$') | to_json }} serve webdav {{ books_webdav_source | replace('%', '%%') | replace('$', '$$') | to_json }} --config {{ books_rclone_config_path | replace('%', '%%') | replace('$', '$$') | to_json }} --htpasswd {{ (books_webdav_state_path ~ '/credentials') | replace('%', '%%') | replace('$', '$$') | to_json }} --addr {{ (books_webdav_listen_address ~ ':' ~ books_webdav_port) | to_json }} --ask-password=false --vfs-cache-mode=off --read-only={{ books_webdav_read_only | ternary('true', 'false') }}
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

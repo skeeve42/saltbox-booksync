@@ -61,14 +61,19 @@ without modifying unrelated rclone configuration.
 
 **Goal:** Allow supported readers to browse and download ebooks remotely.
 
-- [ ] expose the ebook library over authenticated WebDAV
-- [ ] read-only by default
-- [ ] support configurable endpoint and credentials
-- [ ] integrate with Saltbox Traefik
-- [ ] expose only the configured ebook path
+**Status:** Implemented locally on 2026-09-17; integration validation in progress.
+Uses host rclone under systemd and Saltbox's Traefik file provider. Live Saltbox
+TLS/cloud acceptance and physical reader tests remain pending. Configuration:
+`roles/books_webdav/README.md`; acceptance: `docs/client-validation.md`.
+
+- [x] expose the ebook library over authenticated WebDAV
+- [x] read-only by default
+- [x] support configurable endpoint and credentials
+- [x] integrate with Saltbox Traefik (route implemented; live acceptance pending)
+- [x] expose only the configured ebook path
 - [ ] verify KOReader access
 - [ ] verify CrossPoint access
-- [ ] add health checks
+- [x] add health checks
 - [ ] verify idempotency
 
 Success criteria:

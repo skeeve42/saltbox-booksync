@@ -336,8 +336,11 @@ saltbox-booksync/
 Booksync is currently in early development.
 
 Phase 0 is complete locally. Phase 1 storage validation is implemented in
-[`books_rclone`](roles/books_rclone/README.md), with offline integration tests.
-Live Saltbox/cloud validation remains pending; see the [roadmap](docs/roadmap.md).
+[`books_rclone`](roles/books_rclone/README.md). Phase 2 authenticated, read-only
+WebDAV is implemented in [`books_webdav`](roles/books_webdav/README.md), including
+systemd management, Saltbox Traefik routing, and offline integration tests.
+Live Saltbox/cloud and physical reader validation remain pending; see the
+[roadmap](docs/roadmap.md) and [client acceptance checklist](docs/client-validation.md).
 
 Initial milestones are:
 

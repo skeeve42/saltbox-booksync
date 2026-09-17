@@ -1,0 +1,8 @@
+---
+- name: Restart books WebDAV
+  become: true
+  ansible.builtin.systemd_service:
+    name: "{{ books_webdav_service_name }}"
+    daemon_reload: true
+    state: restarted
+  when: not ansible_check_mode

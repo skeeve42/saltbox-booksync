@@ -176,3 +176,102 @@ claiming a downtime target. Snapshots do not roll back external cloud changes.
 - Cloudflare confirmed by user for both lab and production domains.
 - Saltbox configuration, cloud connections and all application acceptance tests
   remain pending.
+
+### Continuation on 2026-09-18
+
+- Reconnected to Ubuntu 26.04.1 and verified no failed systemd services.
+- Confirmed powered-off snapshot `04-before-saltbox-preinstall`
+  (`f5d4c542-bde0-4cb5-86d8-7633a7760c0f`) from the previous session.
+- Ran `sb validate-config` and `sudo sb install preinstall` against Saltbox
+  revision `7a22a30c1e6153ae21bdc15f9c13598547455984`.
+  Result: 126 ok, 31 changed, 80 skipped, zero failed/unreachable/rescued/ignored.
+  Installed rclone 1.75.1 and prepared the existing `labadmin` account.
+- Took powered-off snapshot `05-preinstall-before-cloud-config`
+  (`adc88e55-ba9b-467a-9268-f5727ccd4840`) and restarted successfully.
+- Detected clock drift before shutdown. After reboot, chrony reported normal
+  synchronization, sub-millisecond system offset, and `NTPSynchronized=yes`.
+  Recheck time after host sleep/resume and before TLS/OAuth operations.
+- Prepared `/opt/mount-templates/custom/lab-google-readonly.j2` from the installed
+  Saltbox Google template with `--read-only`. Selected its absolute path in
+  `settings.yml`, disabled uploads, and kept VFS disk caching disabled with a 2G
+  ceiling if enabled later. Cloud mounts have not yet been deployed or tested.
+- User supplied a Cloudflare token privately. Normalized the input field name
+  from `scoped_token` to `cloudflare_scoped_token`, installed it in the VM's
+  mode-0600 `accounts.yml`, and passed `sb validate-config` including Cloudflare
+  credential validation. No DNS records were changed in this step.
+- Verified direct Cloudflare API lookup returns the active `bretcampbell.us`
+  zone. No production domain settings were accessed or changed.
+- Completed browser authorization for two Google accounts, both with
+  `drive.readonly` scope. Credentials reside in mode-0600
+  `/home/labadmin/.config/rclone/rclone.conf`.
+  `books` targets the first account's `Books` shared drive, containing
+  `abooks/`, `ebooks/`, and `import/`. The second account supplies `google`
+  (PlexCloudServers Media Part 1), `google2` (Media Part 2), and `remux` (Remux).
+  Media Part 1 and Part 2 contain `Media/`; Remux contains `Remux/`.
+  NFO and the second account's Books drives were not configured.
+- Configured all four mounts read-only; media mounts join Saltbox's union,
+  while `books` stays separate. Uploads, scheduled recursive VFS refresh,
+  and VFS disk caching are disabled. Cache ceiling is 2G if later enabled.
+- Private Saltbox host overrides in `inventories/host_vars/localhost.yml`:
+  `use_cloudplow: false`, `skip_dns: true`, `cloudflare_records_enabled: false`,
+  `rclone_vfs_cache_min_free_space: 10G`, `rclone_enable_metrics: true`
+  (enables authentication for rclone remote control). DNS certificate
+  challenges remain available; public A/AAAA record management is deferred
+  until the lab's LAN routing is configured.
+- Rclone warns that its shared Google OAuth client is being retired during
+  2026. These working authorizations are provisional: create a personal Google
+  OAuth client and reauthorize before treating the setup as durable.
+- Powered-off snapshot `06-cloud-config-before-core` saved
+  (`74f32ecf-1b50-4f45-b84d-bb58191e7354`). Started `sb install core` as
+  `labadmin`; private output is `/home/labadmin/private/core-install.log`.
+  The initial SSH connection timed out before starting; retried after confirming
+  SSH availability. Core completed: 700 ok, 142 changed, 424 skipped, zero
+  failed/unreachable/rescued/ignored. Docker, Traefik, Authelia, and its Redis
+  container started; Authelia reported healthy. Application acceptance is pending.
+- Verified all four live rclone mounts have kernel `ro` options and the merged
+  `/mnt/unionfs/Media`, `/mnt/unionfs/Remux`, and separate books directories are
+  accessible. Initial cold mount lookups were slow; measure reader latency later.
+- Sandbox revision resolved to `377cb190f0286c332d98b1b0314ec3b628eea64f`.
+  All baseline apps have Saltbox roles except Kometa, which uses Sandbox.
+- User supplied Proton WireGuard configuration privately with NAT-PMP enabled.
+  Added private Gluetun Proton/WireGuard settings and
+  `qbittorrent_docker_network_mode: container:gluetun`. VPN and download client
+  health still require installation and validation. No downloads are configured.
+- Core masked the MOTD news timer, leaving a failed status; cleared that status
+  before shutdown. Recheck systemd health on the next boot.
+- Powered-off snapshot `07-core-before-proton-vpn` saved
+  (`47170cad-a88b-4efc-8636-443091d8a204`). Post-core boot took about two minutes
+  before SSH was usable; do not launch install commands immediately after VM
+  start. Saltbox's controller then resumed the web containers automatically.
+  Confirmed zero failed systemd units, synchronized time, all four read-only
+  mounts, and `https://login.bretcampbell.us` returning HTTP 200 with certificate
+  validation enabled using a local address override.
+- `sb install gluetun` completed (71 ok, 9 changed, zero failures), but initial
+  Proton automatic-server selection produced DNS timeout health-check failures.
+  Do not treat an installer success as VPN acceptance. Repairing with Gluetun's
+  custom WireGuard provider using the exact endpoint/public key in the supplied
+  configuration and explicit Proton port-forwarding provider. qBittorrent has
+  not been installed. Logs remain private as `vpn-install.log` and `vpn-repair.log`.
+- VPN repair completed (71 ok, 7 changed, zero failures). Gluetun reports
+  healthy and an HTTPS egress check returned its Proton public IP. NAT-PMP
+  initially returned connection refused; a working tunnel does not establish
+  that inbound port forwarding works. Recheck forwarded-port allocation.
+- Powered-off snapshot `08-vpn-before-apps-and-lan` saved
+  (`ebbbcbfa-01a8-47ac-b329-1e5d497b3364`). Added VirtualBox adapter 2 bridged
+  to the active Realtek Ethernet interface; kept NAT adapter 1 and local-only
+  SSH forwarding. Guest configuration and LAN access validation remain pending.
+- Guest automatically obtained `192.168.10.152/24` on `enp0s8`
+  (MAC `08:00:27:0e:a2:07`), with NAT still the preferred default route.
+  Created only `*.bretcampbell.us` as a DNS-only A record to that private IP
+  (TTL 300), after confirming no wildcard conflict. Browser verified the
+  Authelia sign-in page at `https://login.bretcampbell.us` from the Windows host.
+  Reserve this MAC/IP in the home router before relying on stable reader URLs;
+  no DHCP reservation or router forwarding has been configured.
+- Started app group with `sb install
+  portainer,organizr,qbittorrent,sabnzbd,jackett,nzbhydra2,sonarr,radarr,lidarr,overseerr,seerr`.
+  Private log: `/home/labadmin/private/apps-install.log`. Completion is pending.
+  Initial Seerr image pull was slow but actively downloading.
+- Proton tunnel recovered healthy after reboot, but NAT-PMP still returned
+  connection refused and no forwarded-port file existed. Requested a new
+  configuration for a different P2P server with NAT-PMP enabled. This does not
+  block installation of the other applications.

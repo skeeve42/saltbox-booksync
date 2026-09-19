@@ -76,9 +76,11 @@ Selected lab domain: `bretcampbell.us` (unused, supplied by user). Public NS
 lookup resolves to `bella.ns.cloudflare.com` and `graham.ns.cloudflare.com`.
 Production uses `robretics.us`; do not change its DNS or services.
 
-Pending: private Cloudflare authorization for the lab zone, Google authorization for each drive, VPN
-provider configuration for Gluetun, Plex claim/login, indexer/Usenet credentials,
-and any MFA. Request these at the stage where needed, without putting secrets
+Completed: Cloudflare authorization for the lab zone, read-only Google drive
+authorization, Proton tunnel credentials, Plex authorization, and TMDb key.
+Pending: replacement Proton P2P/NAT-PMP configuration, a personal Google OAuth
+client, indexer/Usenet provider details and credentials, and any MFA.
+Request these at the stage where needed, without putting secrets
 in chat logs or this repository. Windows installer elevation may require a
 human UAC response. Reader interaction remains a physical acceptance step.
 
@@ -314,3 +316,53 @@ claiming a downtime target. Snapshots do not roll back external cloud changes.
   failed, and the login endpoint returned HTTP 200 with verified TLS.
   qBittorrent's `Session\Interface=tun0` persisted. Docker has an intentional
   120-second pre-start delay; allow that plus container startup before checking.
+- User completed Plex browser authorization. Validated the token against Plex
+  and saved it privately in `/opt/saltbox/plex.ini`. Started
+  `sb install plex,tautulli,autoscan` from checkpoint 09; private log is
+  `/home/labadmin/private/media-install.log`. Installation acceptance pending.
+- Prepared an empty `tmdb_api_key` field in the private host inputs file and
+  requested the user's TMDb v3 API key for Kometa. No credential is stored in
+  this repository.
+- Media group completed: 196 ok, 26 changed, 68 skipped, zero failures.
+  Plex 1.43.4.10903-e5521bd8c is claimed and passed authenticated API access.
+  Tautulli and Autoscan started; token-bearing files were restricted to 0600.
+- Set Plex friendly name to `Saltbox Lab`; disabled automatic trash removal,
+  automatic/periodic library scans, preview/chapter thumbnails, and scheduled
+  deep analysis. User selected a small test library rather than a full scan.
+- Created `/mnt/local/LabMedia` with symlinks to one movie and two TV episodes
+  on read-only cloud mounts. No media files were copied. Added `Lab Movies` and
+  `Lab TV` Plex libraries; private selection manifest is
+  `/home/labadmin/private/plex-test-selection.json`.
+- Linked Tautulli to `http://plex:32400` using the lab server identity/token.
+  Original configuration retained privately before the change.
+- User supplied TMDb key; API validation succeeded. Prepared private Kometa
+  config restricted to the two lab libraries and a simple test collection.
+  Kometa installation and scan/companion-service validation remain pending.
+- Tautulli `get_server_info` and `get_activity` APIs passed. Autoscan's saved
+  target token authenticated to the lab Plex endpoint (HTTP 200). Authenticated
+  Plex HTTPS passed with certificate verification. Both test libraries finished
+  scanning and contain one movie and one show respectively.
+- NAT SSH stalled during validation; the existing bridged address
+  `192.168.10.152:22` worked with the same pinned SSH host key. No VM reset was
+  needed. VirtualBox logged intermittent guest heartbeat/time lag; monitor this
+  before treating the VM as a durable service. No failed systemd units; 34G free.
+- Saved powered-off snapshot `10-plex-before-kometa`
+  (`f368120c-a132-4aaf-9dd1-d79b597ab27d`) and restarted headlessly.
+- Installed `sandbox-kometa`: 56 ok, 6 changed, 15 skipped, zero failures.
+  Private installation log: `/home/labadmin/private/kometa-install.log`.
+  Ran `docker exec kometa python kometa.py --run --collections-only`; both
+  lab libraries received a `Lab Test Selection` collection. Confirmed those
+  collections through Plex's API; private run log is `kometa-test.log`.
+- Reboot preserved the test libraries: one movie and two episodes. An initial
+  HTTPS streaming-range request timed out at 40 seconds. A subsequent direct
+  cloud-file read returned 1 KB in 21.7 seconds, followed by Plex returning
+  HTTP 206 and 1 KB in 0.7 seconds. Basic streaming access passed; cold-start
+  latency and full client playback remain acceptance concerns.
+- Final service check: all 19 baseline containers running; Plex, Organizr,
+  Gluetun, and Authelia reported healthy. Refreshed private image digest
+  manifest. Kometa's normal schedule remains the role default, 03:00, and its
+  configuration targets only the small lab libraries.
+- Requested Usenet provider and indexer names before preparing credentials.
+  Acquisition integrations, request-app setup, personal Google OAuth,
+  Proton port forwarding, stable DHCP reservation, and full baseline acceptance
+  remain unfinished. Booksync deployment has not started.

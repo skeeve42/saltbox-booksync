@@ -275,3 +275,42 @@ claiming a downtime target. Snapshots do not roll back external cloud changes.
   connection refused and no forwarded-port file existed. Requested a new
   configuration for a different P2P server with NAT-PMP enabled. This does not
   block installation of the other applications.
+
+### Continuation on 2026-09-19
+
+- Found VM in saved state and resumed it headlessly. The app installer was
+  still running and resumed normally; do not start a second Ansible process.
+  Seerr, Portainer, Organizr, Sonarr, Radarr, and Lidarr were running; the rest
+  of the requested app group was still installing. About 36G remained free.
+- Saved-state resume left the guest clock several hours behind, despite an
+  initially stale `NTPSynchronized=yes` flag. Restarted chrony and confirmed a
+  fresh NTP reference, normal leap status, and correct UTC date/time.
+- Changed the lab's `/etc/chrony/chrony.conf` from `makestep 1 3` to
+  `makestep 1 -1` so large offsets can be corrected after subsequent resumes.
+  Validated configuration with `chronyd -p` and restarted chrony. Original
+  config retained privately at `/home/labadmin/private/chrony.conf.before-resume-fix`.
+  Future saved-state resume acceptance still needs testing.
+- Proton configuration file had not changed since the initial supplied file;
+  replacement P2P/NAT-PMP configuration and personal Google OAuth client remain
+  pending, along with Usenet/indexer details and Plex/Kometa setup inputs.
+- App group completed: 445 ok, 56 changed, 108 skipped, zero failures or
+  unreachable hosts. All 15 containers were running. Captured exact image IDs
+  and repository digests privately in
+  `/home/labadmin/private/app-image-manifest.json`.
+- Sonarr, Radarr, and Lidarr authenticated API checks passed. All twelve
+  tested HTTPS routes returned successful pages or redirects with valid TLS.
+  Redirect checks establish routing, not completion of each app's setup wizard.
+- Verified qBittorrent 5.2.3 shares Gluetun's network namespace, authenticated
+  with the lab credentials, and set its network interface to `tun0` with UPnP
+  disabled. Read-back confirmed both settings and an empty torrent queue.
+  This version returns HTTP 204 with a session cookie on successful login.
+- Prepared a private Plex browser authorization request. Opening its sign-in
+  link was blocked by automatic approval review pending explicit Plex approval;
+  requested that approval. No Plex account has been authorized yet.
+- Saved powered-off snapshot `09-apps-before-plex`
+  (`24cb6b9a-4e37-4cf7-a5c4-9cb29a967d0b`) and restarted the VM headlessly.
+- Reboot verification passed: all 15 containers returned, Gluetun and Authelia
+  reported healthy, all four cloud mounts remained read-only, no systemd units
+  failed, and the login endpoint returned HTTP 200 with verified TLS.
+  qBittorrent's `Session\Interface=tun0` persisted. Docker has an intentional
+  120-second pre-start delay; allow that plus container startup before checking.
